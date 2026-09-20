@@ -5,14 +5,19 @@ on:
   pull_request:
 
 jobs:
-  test:
+  verify:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v5
         with:
-          python-version: "3.12"
+          node-version: "22"
+          cache: npm
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: npm ci --ignore-scripts
       - run: uv sync --dev
-      - run: uv run pytest
-      - run: uv run ruff check .
+      - run: scripts\sync_config.cmd
+      - run: npm run verify:desktop
+      - run: uv run python scripts\smoke_gateway.py

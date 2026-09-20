@@ -1,0 +1,20 @@
+{
+  "name": "ownerops-desktop-mcp",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Self-hosted remote gateway for Desktop Commander MCP",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@wonderwhy-er/desktop-commander": "0.2.51"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0"
+  },
+  "scripts": {
+    "desktop": "desktop-commander",
+    "verify:desktop": "node scripts/verify-desktop.mjs"
+  }
+}

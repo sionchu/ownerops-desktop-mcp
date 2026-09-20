@@ -1,8 +1,9 @@
+node_modules/
 .venv/
+.env
+runtime/
+*.log
+*.pid
 __pycache__/
 .pytest_cache/
 .ruff_cache/
-.env
-*.log
-*.pid
-.DS_Store
