@@ -1,84 +1,95 @@
 # OwnerOps Desktop MCP
 
-Self-hosted access to the **official Desktop Commander MCP engine**.
+Self-hosted ChatGPT access to the **official Desktop Commander MCP engine**.
 
-This project does not reimplement Desktop Commander's file, terminal, process, search, or document tools.
-It pins the upstream engine and adds isolated local launchers plus a reproducible remote gateway.
+The project does not reimplement Desktop Commander's filesystem, terminal, process, search, edit, or document tools.
+It pins the upstream engine and provides isolated local stdio plus a ChatGPT-web-compatible OAuth gateway.
 
 ## Architecture
 
 ```text
-ChatGPT Desktop / Codex ── stdio ───────────────┐
-                                                ▼
-                                      Desktop Commander MCP
-                                                ▲
-ChatGPT remote client ─ HTTPS ─ mcp-stdio ─ stdio
-                           ▲
-                    Tailscale / tunnel
+Local ChatGPT Desktop / Codex
+           |
+          stdio
+           |
+Official Desktop Commander MCP
+           |
+        Windows PC
+
+ChatGPT Web
+    |
+HTTPS / OAuth 2.1 + PKCE
+    |
+Tailscale Funnel
+    |
+OwnerOps login proxy
+    |
+mcp-stdio OAuth gateway
+    |
+   stdio
+    |
+Official Desktop Commander MCP
+    |
+ Windows PC
 ```
 
-## Pinned upstream components
+## Pinned components
 
-- Desktop Commander MCP: `@wonderwhy-er/desktop-commander@0.2.51`
-- mcp-stdio gateway: `mcp-stdio==0.43.6`
-- MCP SDK used by parity tests: `@modelcontextprotocol/sdk@1.30.0`
+- `@wonderwhy-er/desktop-commander@0.2.51`
+- `mcp-stdio==0.43.6`
+- parity-test SDK: `@modelcontextprotocol/sdk@1.30.0`
 
-Both upstream runtime projects are MIT licensed. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Runtime projects are MIT licensed. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Desktop Commander parity
 
-The project exposes the actual upstream Desktop Commander catalog. Current verification reports **26 tools**:
+Current verification exposes **26 upstream tools**, including:
 
-- configuration: `get_config`, `set_config_value`
-- filesystem: read, multi-read, write, directory listing/creation, move, metadata
-- search: start/paginate/stop/list searches
-- editing: `edit_block`
-- terminal: start process, interact, read output, terminate
-- process/session management: list sessions/processes and kill process
-- upstream helpers including `write_pdf`, usage/history and onboarding tools
+- `get_config`, `set_config_value`
+- `read_file`, `read_multiple_files`, `write_file`
+- directory creation/listing, move, file metadata
+- paginated search lifecycle
+- `edit_block`
+- process start/output/input/termination
+- process and session listing/management
+- `write_pdf`
+- upstream usage/history/onboarding helpers
 
-Cloud-account-only tools from the paid Desktop Commander Remote service
-(`who_am_i`, billing/remote usage percentage, remote device dashboard metadata) are not part of the local engine.
+Paid-cloud account/device tools such as `who_am_i` and billing usage are not part of the local Desktop Commander engine.
 
-## Isolation from an existing Desktop Commander install
+## Filesystem policy
 
-Both launchers override `USERPROFILE`/`HOME` for the upstream child and keep a dedicated runtime home:
+OwnerOps uses its own isolated Desktop Commander home:
 
 ```text
 runtime/home/.claude-server-commander/config.json
 ```
 
-This prevents OwnerOps from sharing the configuration used by an existing Desktop Commander installation.
-
-The committed policy template allows filesystem tools only under:
+The committed policy limits filesystem tools to:
 
 - `C:\Users\getch\mcp`
 - `C:\Users\getch\Documents`
 - `C:\Users\getch\Downloads`
 
-Desktop Commander's upstream warning still applies: `allowedDirectories` constrains filesystem tools,
-not everything a terminal process can access. The upstream dangerous-command blocklist is retained.
+Telemetry is disabled and the upstream dangerous-command blocklist is retained.
+
+Important: upstream `allowedDirectories` constrains Desktop Commander's filesystem tools; it is not an OS sandbox for arbitrary child programs launched through the terminal.
 
 ## Install
 
 ```cmd
 scripts\install.cmd
-copy .env.example .env
 ```
 
-Generate a long random value for `MCP_STDIO_SERVE_TOKEN`.
-
-Dependency lifecycle scripts are intentionally disabled during npm install.
+Secrets live only in `.env`, which is gitignored.
 
 ## Local ChatGPT Desktop / Codex
-
-Use the stdio launcher:
 
 ```cmd
 scripts\desktop_stdio.cmd
 ```
 
-Example Codex/ChatGPT Desktop configuration:
+This machine is configured with:
 
 ```toml
 [mcp_servers.ownerops_desktop]
@@ -88,70 +99,112 @@ startup_timeout_sec = 120
 tool_timeout_sec = 300
 ```
 
-This is the preferred path on the same PC: no public endpoint, token, or tunnel is required.
+## ChatGPT Web endpoint
 
-## Remote Streamable HTTP
-
-Run:
-
-```cmd
-scripts\start_gateway.cmd
-```
-
-Local endpoint:
+Production MCP URL:
 
 ```text
-http://127.0.0.1:8765/mcp
+https://naver-mcp-home.taild017a0.ts.net/ownerops/mcp
 ```
 
-The remote gateway uses a static bearer token by default.
-
-## Tailscale
-
-A Tailscale Funnel path can expose the loopback gateway:
-
-```cmd
-tailscale funnel --bg --yes --set-path /ownerops http://127.0.0.1:8765
-```
-
-Result:
+OAuth issuer:
 
 ```text
-https://<tailnet-host>/ownerops/mcp
+https://naver-mcp-home.taild017a0.ts.net/ownerops
 ```
 
-For ChatGPT web, prefer OpenAI Secure MCP Tunnel when available so the service does not need to be public.
-A web custom app may require OAuth depending on the ChatGPT surface and plan; that is tracked separately from
-the Desktop Commander engine itself.
+Authorization Server Metadata:
+
+```text
+https://naver-mcp-home.taild017a0.ts.net/.well-known/oauth-authorization-server/ownerops
+```
+
+Protected Resource Metadata:
+
+```text
+https://naver-mcp-home.taild017a0.ts.net/.well-known/oauth-protected-resource/ownerops/mcp
+```
+
+The web gateway supports:
+
+- OAuth Authorization Code
+- PKCE S256
+- Dynamic Client Registration
+- RFC 9207 `iss`
+- RFC 8707 `resource`
+- refresh-token rotation
+- persisted OAuth state
+- `offline_access`
+- fixed ChatGPT redirect `https://chatgpt.com/connector_platform_oauth_redirect`
+
+## Web login
+
+Credentials are generated locally and are not committed.
+
+To display them on the PC:
+
+```cmd
+scripts\show_web_login.cmd
+```
+
+The browser login is used only during OAuth authorization. MCP requests use issued OAuth access tokens afterward.
+
+## Run web gateway
+
+```cmd
+scripts\start_web_gateway.cmd
+```
+
+The login proxy listens only on `127.0.0.1:8765`. The OAuth backend listens only on `127.0.0.1:8766`.
+Tailscale Funnel exposes the HTTPS routes.
 
 ## Verification
 
-Raw upstream stdio parity:
+Raw Desktop Commander parity:
 
 ```cmd
 npm run verify:desktop
 ```
 
-Complete HTTP bridge:
+ChatGPT-style production OAuth test:
 
 ```cmd
-uv run python scripts\smoke_gateway.py
+uv run python scripts\smoke_web_oauth.py
 ```
 
-The HTTP smoke test checks bearer authentication, MCP initialization, session handling, `tools/list`,
-and the expected Desktop Commander core tool set.
+The OAuth smoke test verifies discovery, DCR, browser login, PKCE, issuer validation, resource binding,
+authorization-code exchange, refresh-token rotation, MCP initialization, session handling, and the 26-tool catalog.
 
-## Updating Desktop Commander
+## ChatGPT web registration
 
-Do not copy upstream source into this repository. Update the pinned npm version, reinstall, run both
-verification commands, review the tool-list diff and `npm audit --omit=dev`, then commit lockfile changes.
+In ChatGPT developer mode create a custom app and use:
 
-## Security notes
+```text
+MCP URL: https://naver-mcp-home.taild017a0.ts.net/ownerops/mcp
+Authentication: OAuth
+```
 
-The current upstream Desktop Commander dependency tree has npm advisories in image/document dependencies.
-They are tracked in GitHub Issues rather than force-overridden across semver boundaries. Do not expose the
-gateway without authentication.
+During Scan Tools, complete the OwnerOps login page. ChatGPT should then discover the upstream Desktop Commander tools.
+
+## Updating
+
+When Desktop Commander or mcp-stdio changes:
+
+1. update only the pinned dependency version
+2. install with lifecycle scripts disabled
+3. run `npm run verify:desktop`
+4. run the OAuth smoke test
+5. review the tool-list diff and `npm audit --omit=dev`
+6. commit lockfile changes
+
+## Security
+
+Do not expose the backend ports directly. Only the login proxy is routed through Tailscale Funnel.
+The trusted user header is stripped from all client requests and injected only after successful OwnerOps login.
+OAuth tokens and registrations persist under `runtime/`, which is gitignored.
+
+Upstream dependency advisories are tracked in GitHub rather than force-overridden across potentially incompatible versions.
 
 ## License
 
-OwnerOps deployment code is MIT licensed. Upstream dependencies retain their own licenses.
+OwnerOps deployment code is MIT licensed. Upstream dependencies retain their licenses.

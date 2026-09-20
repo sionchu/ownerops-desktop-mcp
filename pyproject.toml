@@ -1,14 +1,17 @@
 [project]
 name = "ownerops-desktop-mcp"
-version = "0.3.0"
-description = "Remote Streamable HTTP gateway for the official Desktop Commander MCP engine"
+version = "0.4.0"
+description = "Self-hosted ChatGPT web gateway for the official Desktop Commander MCP engine"
 requires-python = ">=3.12"
 dependencies = [
   "mcp-stdio==0.43.6",
+  "httpx>=0.28.0",
+  "python-dotenv>=1.1.0",
+  "starlette>=0.47.0",
+  "uvicorn>=0.35.0",
 ]
 
 [dependency-groups]
 dev = [
-  "httpx>=0.28.0",
   "pytest>=9.0.0",
 ]
