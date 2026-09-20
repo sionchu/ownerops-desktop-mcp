@@ -206,7 +206,7 @@ def main() -> int:
             "params": {
                 "protocolVersion": "2025-06-18",
                 "capabilities": {},
-                "clientInfo": {"name": "ownerops-chatgpt-smoke", "version": "0.4.0"},
+                "clientInfo": {"name": "ownerops-chatgpt-smoke", "version": "0.5.0"},
             },
         },
     )
@@ -237,8 +237,8 @@ def main() -> int:
     missing = sorted(REQUIRED - names)
     if missing:
         raise RuntimeError("Missing Desktop Commander tools: " + ", ".join(missing))
-    if len(names) != 109:
-        raise RuntimeError(f"Expected 109 aggregate tools, got {len(names)}")
+    if len(names) != 118:
+        raise RuntimeError(f"Expected 118 aggregate tools, got {len(names)}")
     for required_name in (
         "win_health_check",
         "win_list_windows",
@@ -250,6 +250,15 @@ def main() -> int:
         "sys_scheduled_task",
         "sys_security_audit",
         "search_everything_search",
+        "web_fetch",
+        "web_crawl",
+        "browser_open",
+        "browser_snapshot",
+        "browser_click",
+        "browser_fill",
+        "browser_press",
+        "browser_screenshot",
+        "browser_close",
     ):
         if required_name not in names:
             raise RuntimeError(f"Missing aggregate tool: {required_name}")
@@ -265,11 +274,24 @@ def main() -> int:
         "sys_process",
         "sys_window",
         "sys_wmi_query",
+        "browser_eval",
+        "browser_type",
+        "browser_upload",
+        "browser_download",
     ):
         if forbidden_name in names:
             raise RuntimeError(f"Duplicate/risky aggregate tool should be filtered: {forbidden_name}")
-    if any(name.startswith("web_") for name in names):
-        raise RuntimeError("Browser tools should not be exposed by the default aggregate")
+    expected_web = {
+        "web_fetch", "web_crawl",
+        "browser_open", "browser_snapshot", "browser_click",
+        "browser_fill", "browser_press", "browser_screenshot", "browser_close",
+    }
+    unexpected_web = {
+        name for name in names
+        if (name.startswith("web_") or name.startswith("browser_")) and name not in expected_web
+    }
+    if unexpected_web:
+        raise RuntimeError("Unexpected Web tool surface: " + ", ".join(sorted(unexpected_web)))
 
     regression_file = str(ROOT / "runtime" / "oauth-regression-test.txt")
     write_response = client.post(
@@ -445,6 +467,7 @@ def main() -> int:
             "search_everything_search",
             {"params": {"query": "ownerops-desktop-mcp", "max_results": 5}},
         ),
+        ("web_fetch", {"url": "https://example.com", "max_chars": 2000}),
     ]
     for label, arguments in extra_cases:
         extra_response = client.post(
