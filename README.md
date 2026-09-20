@@ -1,6 +1,6 @@
 # OwnerOps Desktop MCP
 
-Self-hosted Windows desktop control for ChatGPT and other MCP clients.
+Self-hosted Windows desktop control plus a constrained public-web surface for ChatGPT and other MCP clients.
 
 OwnerOps keeps the official Desktop Commander engine as the canonical filesystem,
 terminal, and process backend, then adds focused Windows automation and system
@@ -14,24 +14,24 @@ Local MCP client                         ChatGPT Web
       |                                      |
       | stdio                                | HTTPS / OAuth 2.1 + PKCE
       v                                      v
-                 OwnerOps Desktop
-                    McpProxy
-                       |
-        +--------------+--------------+--------------+
-        |              |              |              |
- Desktop Commander  Win32 MCP    Windows-mcp   Everything MCP
-     26 tools        53 tools       25 tools       5 tools
-        |              |              |              |
-        +--------------+--------------+--------------+
-                       |
-                  Windows PC
+                    OwnerOps Desktop
+                       McpProxy
+                          |
+   +-----------+-----------+-----------+-----------+-----------+
+   |           |           |           |           |
+ Desktop    Win32 MCP  Windows-mcp  Everything   OwnerOps Web
+ 26 tools    53 tools     25 tools     5 tools      9 tools
+   |           |           |           |           |
+   +-----------+-----------+-----------+-----------+-----------+
+                          |
+                 Windows PC + public web
 ```
 
 For ChatGPT Web, `mcp-stdio` wraps the same aggregate behind the OwnerOps OAuth gateway.
 
 ## Default tool surface
 
-The default aggregate exposes exactly **109 tools**:
+The default aggregate exposes exactly **118 tools**:
 
 | Backend | Tools | Role |
 |---|---:|---|
@@ -39,6 +39,7 @@ The default aggregate exposes exactly **109 tools**:
 | Win32 MCP | 53 | Windows UI automation, input, clipboard, windows, UIA, capture/OCR |
 | Windows-mcp | 25 | Curated system diagnostics and administration |
 | Everything MCP | 5 | Indexed machine-wide file search |
+| OwnerOps Web | 9 | Public-web fetch/crawl plus constrained browser automation |
 
 The Windows-mcp allowlist keeps only system-specific capabilities:
 audio, certificates, Defender, disk inspection, drivers, environment variables,
@@ -51,9 +52,11 @@ Generic duplicate System tools for file I/O, mouse/keyboard, window control,
 screenshot/OCR, process launching, PowerShell, and raw WMI are not exposed.
 Those responsibilities already have canonical OwnerOps backends.
 
-Playwright/browser tools are also excluded from the default aggregate. Browser
-automation is a separate concern and previously added 45 tools without improving
-Windows desktop-control parity.
+Raw browser MCP catalogs remain excluded. OwnerOps Web exposes only nine
+canonical tools: two bounded read/crawl tools backed by Crawl4AI and seven
+browser-action tools backed by agent-browser. Lower-level eval, upload/download,
+network interception, cookie/storage, and duplicate input/window/process tools
+are intentionally not exposed.
 
 ## Runtime components
 
@@ -63,6 +66,8 @@ Windows desktop-control parity.
 - `win32-mcp-server==2.6.1` with Python MCP SDK `1.30.0`
 - Windows-mcp from `danielsimonjr/Windows-mcp`, locally pinned by runtime build
 - `everything-mcp==1.0.6`
+- Crawl4AI `0.7.8` with Playwright `1.63.0` in an isolated web runtime
+- agent-browser `0.38.1` in an isolated npm runtime
 - Tesseract OCR `5.5.3`
 - parity-test SDK `@modelcontextprotocol/sdk@1.30.0`
 
@@ -92,6 +97,14 @@ canonical process-management paths.
 Curated Windows-mcp mutating operations keep their upstream `confirm:true`
 requirements. McpProxy logging masks sensitive data and response logging is off.
 
+OwnerOps Web accepts only public HTTP(S) URLs without embedded credentials. It
+rejects localhost, private/non-global resolved addresses, and local/internal
+hostname suffixes. Crawl4AI installs a per-page request guard, while browser
+automation runs in an isolated agent-browser session with a domain allowlist.
+Web page content is treated as untrusted data. Eval, upload/download, network
+interception, cookie/storage control, and persistent browser credentials are not
+part of the exposed tool surface.
+
 ## Install
 
 Base repo dependencies:
@@ -109,13 +122,17 @@ runtime/win32-venv/Scripts/win32-mcp-server.exe
 runtime/windows-mcp-dist/WindowsMcp.exe
 runtime/everything-venv/Scripts/everything-mcp.exe
 runtime/bin/es.exe
+runtime/crawl4ai-mcp-venv/Scripts/python.exe
+runtime/agent-browser/node_modules/agent-browser/bin/agent-browser-win32-x64.exe
 C:\Users\getch\.dotnet\tools\mcpproxy.exe
 C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
 These runtime artifacts are intentionally gitignored instead of vendored into
-the repository. `scripts\start_web_gateway.cmd` performs preflight checks for
-the required aggregate executables.
+the repository. `scripts\install.cmd` installs the web runtime through
+`scripts\install_web.cmd`; that web installer can also be run independently.
+`scripts\start_web_gateway.cmd` performs preflight checks for the required
+aggregate executables.
 
 ## Local MCP endpoint
 
@@ -186,6 +203,12 @@ Curated aggregate catalog:
 npm run verify:aggregate
 ```
 
+Web functional smoke:
+
+```cmd
+runtime\crawl4ai-mcp-venv\Scripts\python.exe scripts\smoke_web.py
+```
+
 Production-style OAuth smoke:
 
 ```cmd
@@ -194,8 +217,8 @@ Production-style OAuth smoke:
 
 The OAuth smoke verifies discovery, DCR, login, PKCE, issuer/resource binding,
 token exchange, refresh-token rotation, MCP session handling, the exact
-109-tool catalog, Desktop Commander terminal/Git/Python regressions, and safe
-representative Win32/System/Everything calls.
+118-tool catalog, Desktop Commander terminal/Git/Python regressions, and safe
+representative Win32/System/Everything/Web calls.
 
 The smoke parser treats both MCP-level `isError` and tool-level JSON
 `{"error": true}` envelopes as failures.
@@ -214,7 +237,7 @@ capture worked; verify the returned tool payload.
 ## ChatGPT tool refresh
 
 After changing the aggregate tool catalog, reconnect or rescan the OwnerOps
-custom app in ChatGPT so its cached tool schemas match the current 109-tool
+custom app in ChatGPT so its cached tool schemas match the current 118-tool
 server surface.
 
 ## Updating
@@ -235,8 +258,8 @@ paths.
 
 Package inventory is intentionally handled through the existing shell
 (`winget`, application-specific CLIs, etc.) instead of adding another package
-manager MCP. Browser automation and session recording are likewise kept outside
-the default aggregate unless a concrete OwnerOps workflow requires them.
+manager MCP. Full raw browser catalogs and session recording remain outside the
+default aggregate; only the curated OwnerOps Web surface is exposed.
 
 ## License
 

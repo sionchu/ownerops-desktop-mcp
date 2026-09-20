@@ -61,6 +61,34 @@ tools. Duplicate file/UI/screenshot/process-shell tools are filtered out.
 Everything MCP uses the local Everything command-line interface for indexed
 Windows file search.
 
+## Crawl4AI
+
+- Project: https://github.com/unclecode/crawl4ai
+- Pinned version: `0.7.8`
+- License: Apache License 2.0
+
+Crawl4AI is the OwnerOps Web page-rendering, Markdown extraction, and bounded
+crawl engine. It runs in the isolated `runtime/crawl4ai-mcp-venv` environment.
+
+## Playwright
+
+- Project: https://github.com/microsoft/playwright-python
+- Pinned version: `1.63.0`
+- License: Apache License 2.0
+
+Playwright provides the Chromium automation runtime used by Crawl4AI. Browser
+binaries downloaded by Playwright retain their own upstream licenses and notices.
+
+## agent-browser
+
+- Project: https://github.com/vercel-labs/agent-browser
+- Pinned version: `0.38.1`
+- License: Apache License 2.0
+
+agent-browser provides the constrained browser-action engine behind the curated
+OwnerOps Web browser tools. Its downloaded Chrome for Testing runtime retains
+Google/Chromium upstream licensing and notices.
+
 ## Tesseract OCR
 
 - Project: https://github.com/tesseract-ocr/tesseract
@@ -73,7 +101,7 @@ different open-source licenses as documented by the upstream project.
 ## Model Context Protocol SDK
 
 - JavaScript parity-test package: `@modelcontextprotocol/sdk@1.30.0`
-- Python SDK in the isolated Win32/Everything runtimes: `mcp==1.30.0`
+- Python SDK in the isolated Win32/Everything/Web runtimes: `mcp==1.30.0`
 
 Those packages retain their upstream licenses and notices.
 

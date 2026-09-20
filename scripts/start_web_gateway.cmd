@@ -38,6 +38,14 @@ if not exist "runtime\bin\es.exe" (
   echo Missing Everything CLI runtime. See README aggregate prerequisites.
   exit /b 1
 )
+if not exist "runtime\crawl4ai-mcp-venv\Scripts\python.exe" (
+  echo Missing Web crawler runtime. Run scripts\install_web.cmd.
+  exit /b 1
+)
+if not exist "runtime\agent-browser\node_modules\agent-browser\bin\agent-browser-win32-x64.exe" (
+  echo Missing agent-browser runtime. Run scripts\install_web.cmd.
+  exit /b 1
+)
 if not exist "C:\Program Files\Tesseract-OCR\tesseract.exe" (
   echo Missing Tesseract OCR runtime. See README aggregate prerequisites.
   exit /b 1

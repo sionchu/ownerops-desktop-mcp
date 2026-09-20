@@ -2,8 +2,8 @@
   "proxy": {
     "serverInfo": {
       "name": "OwnerOps Desktop",
-      "version": "0.4.0",
-      "instructions": "Unified Windows control: Desktop Commander, Win32 UI/OCR automation, curated system diagnostics, and indexed file search."
+      "version": "0.5.0",
+      "instructions": "Unified Windows control plus constrained public-web read/crawl and browser automation."
     },
     "routing": {
       "mode": "unified",
@@ -117,6 +117,16 @@
         "prefix": "search",
         "prefixSeparator": "_"
       }
+    },
+    "web": {
+      "type": "stdio",
+      "title": "OwnerOps Web",
+      "description": "Constrained public-web read/crawl and browser automation",
+      "command": "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\runtime\\crawl4ai-mcp-venv\\Scripts\\python.exe",
+      "arguments": [
+        "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\scripts\\web_mcp.py"
+      ],
+      "enabled": true
     }
   }
 }
