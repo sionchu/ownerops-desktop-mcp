@@ -2,7 +2,7 @@
   "name": "ownerops-desktop-mcp",
   "version": "0.4.0",
   "private": true,
-  "description": "Self-hosted ChatGPT web gateway for the official Desktop Commander MCP engine",
+  "description": "Self-hosted ChatGPT gateway for curated Windows desktop control MCP backends",
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -15,6 +15,8 @@
   },
   "scripts": {
     "desktop": "desktop-commander",
-    "verify:desktop": "node scripts/verify-desktop.mjs"
+    "verify:desktop": "node scripts/verify-desktop.mjs",
+    "verify:win32": "node scripts/verify-win32.mjs",
+    "verify:aggregate": "node scripts/verify-aggregate.mjs"
   }
 }

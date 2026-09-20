@@ -35,11 +35,7 @@
     "takeown"
   ],
   "defaultShell": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-  "allowedDirectories": [
-    "C:\\Users\\getch\\mcp",
-    "C:\\Users\\getch\\Documents",
-    "C:\\Users\\getch\\Downloads"
-  ],
+  "allowedDirectories": [],
   "telemetryEnabled": false,
   "fileWriteLineLimit": 50,
   "fileReadLineLimit": 1000,

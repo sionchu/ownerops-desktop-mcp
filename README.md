@@ -1,103 +1,131 @@
 # OwnerOps Desktop MCP
 
-Self-hosted ChatGPT access to the **official Desktop Commander MCP engine**.
+Self-hosted Windows desktop control for ChatGPT and other MCP clients.
 
-The project does not reimplement Desktop Commander's filesystem, terminal, process, search, edit, or document tools.
-It pins the upstream engine and provides isolated local stdio plus a ChatGPT-web-compatible OAuth gateway.
+OwnerOps keeps the official Desktop Commander engine as the canonical filesystem,
+terminal, and process backend, then adds focused Windows automation and system
+capabilities through a curated McpProxy aggregate. The default surface is kept
+intentionally smaller than the union of every upstream tool.
 
 ## Architecture
 
 ```text
-Local ChatGPT Desktop / Codex
-           |
-          stdio
-           |
-Official Desktop Commander MCP
-           |
-        Windows PC
-
-ChatGPT Web
-    |
-HTTPS / OAuth 2.1 + PKCE
-    |
-Tailscale Funnel
-    |
-OwnerOps login proxy
-    |
-mcp-stdio OAuth gateway
-    |
-   stdio
-    |
-Official Desktop Commander MCP
-    |
- Windows PC
+Local MCP client                         ChatGPT Web
+      |                                      |
+      | stdio                                | HTTPS / OAuth 2.1 + PKCE
+      v                                      v
+                 OwnerOps Desktop
+                    McpProxy
+                       |
+        +--------------+--------------+--------------+
+        |              |              |              |
+ Desktop Commander  Win32 MCP    Windows-mcp   Everything MCP
+     26 tools        53 tools       25 tools       5 tools
+        |              |              |              |
+        +--------------+--------------+--------------+
+                       |
+                  Windows PC
 ```
 
-## Pinned components
+For ChatGPT Web, `mcp-stdio` wraps the same aggregate behind the OwnerOps OAuth gateway.
+
+## Default tool surface
+
+The default aggregate exposes exactly **109 tools**:
+
+| Backend | Tools | Role |
+|---|---:|---|
+| Desktop Commander | 26 | Files, directories, editing, terminal, process/session management, PDF |
+| Win32 MCP | 53 | Windows UI automation, input, clipboard, windows, UIA, capture/OCR |
+| Windows-mcp | 25 | Curated system diagnostics and administration |
+| Everything MCP | 5 | Indexed machine-wide file search |
+
+The Windows-mcp allowlist keeps only system-specific capabilities:
+audio, certificates, Defender, disk inspection, drivers, environment variables,
+event logs, NTFS streams/change journal, firewall, integrity checks, network,
+notifications, deep process inspection, registry, reliability, scheduled tasks,
+security audit, services, startup report, storage health, system information,
+signature verification, and directory watching.
+
+Generic duplicate System tools for file I/O, mouse/keyboard, window control,
+screenshot/OCR, process launching, PowerShell, and raw WMI are not exposed.
+Those responsibilities already have canonical OwnerOps backends.
+
+Playwright/browser tools are also excluded from the default aggregate. Browser
+automation is a separate concern and previously added 45 tools without improving
+Windows desktop-control parity.
+
+## Runtime components
 
 - `@wonderwhy-er/desktop-commander@0.2.51`
 - `mcp-stdio==0.43.6`
-- parity-test SDK: `@modelcontextprotocol/sdk@1.30.0`
+- McpProxy `1.22.0`
+- `win32-mcp-server==2.6.1` with Python MCP SDK `1.30.0`
+- Windows-mcp from `danielsimonjr/Windows-mcp`, locally pinned by runtime build
+- `everything-mcp==1.0.6`
+- Tesseract OCR `5.5.3`
+- parity-test SDK `@modelcontextprotocol/sdk@1.30.0`
 
-Runtime projects are MIT licensed. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Security model
 
-## Desktop Commander parity
-
-Current verification exposes **26 upstream tools**, including:
-
-- `get_config`, `set_config_value`
-- `read_file`, `read_multiple_files`, `write_file`
-- directory creation/listing, move, file metadata
-- paginated search lifecycle
-- `edit_block`
-- process start/output/input/termination
-- process and session listing/management
-- `write_pdf`
-- upstream usage/history/onboarding helpers
-
-Paid-cloud account/device tools such as `who_am_i` and billing usage are not part of the local Desktop Commander engine.
-
-## Filesystem policy
-
-OwnerOps uses its own isolated Desktop Commander home:
+Desktop Commander runs with its own isolated home:
 
 ```text
 runtime/home/.claude-server-commander/config.json
 ```
 
-The committed policy limits filesystem tools to:
+The committed baseline intentionally sets `allowedDirectories: []`, so Desktop
+Commander filesystem tools can access the full filesystem permitted by the
+Windows account. The live runtime config is expected to report the same value
+through `get_config`; `scripts\sync_config.cmd` reapplies the committed baseline
+when an explicit reset is needed.
 
-- `C:\Users\getch\mcp`
-- `C:\Users\getch\Documents`
-- `C:\Users\getch\Downloads`
+Telemetry is disabled and the upstream dangerous-command blocklist remains enabled.
+`allowedDirectories` controls Desktop Commander filesystem policy only; it does
+not bypass Windows ACLs or sandbox arbitrary child processes started from the terminal.
 
-Telemetry is disabled and the upstream dangerous-command blocklist is retained.
+Win32 MCP runs with the `interactive` security profile. Ordinary GUI automation
+remains available, while its high-risk `start_process`, `kill_process`, and
+`close_window` paths are blocked by that profile. OwnerOps already has safer
+canonical process-management paths.
 
-Important: upstream `allowedDirectories` constrains Desktop Commander's filesystem tools; it is not an OS sandbox for arbitrary child programs launched through the terminal.
+Curated Windows-mcp mutating operations keep their upstream `confirm:true`
+requirements. McpProxy logging masks sensitive data and response logging is off.
 
 ## Install
+
+Base repo dependencies:
 
 ```cmd
 scripts\install.cmd
 ```
 
-Secrets live only in `.env`, which is gitignored.
+This installs the committed Node/Python project dependencies. Secrets stay in
+`.env`, which is gitignored.
+The aggregate also expects machine-local runtimes under `runtime/`:
 
-## Local ChatGPT Desktop / Codex
+```text
+runtime/win32-venv/Scripts/win32-mcp-server.exe
+runtime/windows-mcp-dist/WindowsMcp.exe
+runtime/everything-venv/Scripts/everything-mcp.exe
+runtime/bin/es.exe
+C:\Users\getch\.dotnet\tools\mcpproxy.exe
+C:\Program Files\Tesseract-OCR\tesseract.exe
+```
+
+These runtime artifacts are intentionally gitignored instead of vendored into
+the repository. `scripts\start_web_gateway.cmd` performs preflight checks for
+the required aggregate executables.
+
+## Local MCP endpoint
+
+Run:
 
 ```cmd
 scripts\desktop_stdio.cmd
 ```
 
-This machine is configured with:
-
-```toml
-[mcp_servers.ownerops_desktop]
-command = 'C:\Users\getch\mcp\ownerops-desktop-mcp\scripts\desktop_stdio.cmd'
-args = []
-startup_timeout_sec = 120
-tool_timeout_sec = 300
-```
+The script starts McpProxy in stdio mode using `config\mcp-proxy.json`.
 
 ## ChatGPT Web endpoint
 
@@ -112,19 +140,6 @@ OAuth issuer:
 ```text
 https://naver-mcp-home.taild017a0.ts.net/ownerops
 ```
-
-Authorization Server Metadata:
-
-```text
-https://naver-mcp-home.taild017a0.ts.net/.well-known/oauth-authorization-server/ownerops
-```
-
-Protected Resource Metadata:
-
-```text
-https://naver-mcp-home.taild017a0.ts.net/.well-known/oauth-protected-resource/ownerops/mcp
-```
-
 The web gateway supports:
 
 - OAuth Authorization Code
@@ -137,26 +152,20 @@ The web gateway supports:
 - `offline_access`
 - fixed ChatGPT redirect `https://chatgpt.com/connector_platform_oauth_redirect`
 
-## Web login
+The login proxy listens on `127.0.0.1:8765`; the OAuth backend listens on
+`127.0.0.1:8766`. Only the intended HTTPS route should be exposed externally.
 
-Credentials are generated locally and are not committed.
-
-To display them on the PC:
-
-```cmd
-scripts\show_web_login.cmd
-```
-
-The browser login is used only during OAuth authorization. MCP requests use issued OAuth access tokens afterward.
-
-## Run web gateway
+Run the gateway with:
 
 ```cmd
 scripts\start_web_gateway.cmd
 ```
 
-The login proxy listens only on `127.0.0.1:8765`. The OAuth backend listens only on `127.0.0.1:8766`.
-Tailscale Funnel exposes the HTTPS routes.
+To display the locally generated OwnerOps login credentials:
+
+```cmd
+scripts\show_web_login.cmd
+```
 
 ## Verification
 
@@ -166,45 +175,70 @@ Raw Desktop Commander parity:
 npm run verify:desktop
 ```
 
-ChatGPT-style production OAuth test:
+Win32 standalone catalog:
 
 ```cmd
-uv run python scripts\smoke_web_oauth.py
+npm run verify:win32
+```
+Curated aggregate catalog:
+
+```cmd
+npm run verify:aggregate
 ```
 
-The OAuth smoke test verifies discovery, DCR, browser login, PKCE, issuer validation, resource binding,
-authorization-code exchange, refresh-token rotation, MCP initialization, session handling, and the 26-tool catalog.
+Production-style OAuth smoke:
 
-## ChatGPT web registration
-
-In ChatGPT developer mode create a custom app and use:
-
-```text
-MCP URL: https://naver-mcp-home.taild017a0.ts.net/ownerops/mcp
-Authentication: OAuth
+```cmd
+.venv\Scripts\python.exe scripts\smoke_web_oauth.py
 ```
 
-During Scan Tools, complete the OwnerOps login page. ChatGPT should then discover the upstream Desktop Commander tools.
+The OAuth smoke verifies discovery, DCR, login, PKCE, issuer/resource binding,
+token exchange, refresh-token rotation, MCP session handling, the exact
+109-tool catalog, Desktop Commander terminal/Git/Python regressions, and safe
+representative Win32/System/Everything calls.
+
+The smoke parser treats both MCP-level `isError` and tool-level JSON
+`{"error": true}` envelopes as failures.
+
+## Screen capture and OCR note
+
+Win32 capture/OCR depends on Windows desktop capture APIs. A reachable desktop
+session can still deny graphics capture, for example when the active session or
+display path does not expose a capturable surface. In that state, window
+enumeration and UI Automation may continue to work while screenshot/OCR calls
+return a Windows graphics/BitBlt error.
+
+Do not treat tool registration or a top-level MCP success envelope as proof that
+capture worked; verify the returned tool payload.
+
+## ChatGPT tool refresh
+
+After changing the aggregate tool catalog, reconnect or rescan the OwnerOps
+custom app in ChatGPT so its cached tool schemas match the current 109-tool
+server surface.
 
 ## Updating
 
-When Desktop Commander or mcp-stdio changes:
+When an upstream component changes:
 
-1. update only the pinned dependency version
-2. install with lifecycle scripts disabled
-3. run `npm run verify:desktop`
-4. run the OAuth smoke test
-5. review the tool-list diff and `npm audit --omit=dev`
-6. commit lockfile changes
+1. update only the intended pinned/runtime component
+2. review the upstream tool-list diff
+3. keep one canonical backend for overlapping capabilities
+4. run Desktop, Win32, and aggregate parity checks
+5. run the production OAuth smoke
+6. verify representative real calls, not only `tools/list`
+7. review `git diff` and remove experimental artifacts before committing
 
-## Security
+Do not add an MCP merely because it exposes more tools. New backends should add
+a distinct capability that cannot be covered cleanly by the existing canonical
+paths.
 
-Do not expose the backend ports directly. Only the login proxy is routed through Tailscale Funnel.
-The trusted user header is stripped from all client requests and injected only after successful OwnerOps login.
-OAuth tokens and registrations persist under `runtime/`, which is gitignored.
-
-Upstream dependency advisories are tracked in GitHub rather than force-overridden across potentially incompatible versions.
+Package inventory is intentionally handled through the existing shell
+(`winget`, application-specific CLIs, etc.) instead of adding another package
+manager MCP. Browser automation and session recording are likewise kept outside
+the default aggregate unless a concrete OwnerOps workflow requires them.
 
 ## License
 
-OwnerOps deployment code is MIT licensed. Upstream dependencies retain their licenses.
+OwnerOps deployment code is MIT licensed. Upstream dependencies retain their
+own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

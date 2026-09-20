@@ -261,7 +261,8 @@ async def proxy(request: Request) -> Response:
 
 def _backend_command() -> list[str]:
     executable = ROOT / ".venv" / "Scripts" / "mcp-stdio.exe"
-    desktop = ROOT / "node_modules" / "@wonderwhy-er" / "desktop-commander" / "dist" / "index.js"
+    proxy = Path.home() / ".dotnet" / "tools" / "mcpproxy.exe"
+    proxy_config = ROOT / "config" / "mcp-proxy.json"
     return [
         str(executable),
         "serve",
@@ -285,8 +286,11 @@ def _backend_command() -> list[str]:
         "--session-idle-ttl",
         "900",
         "--",
-        "node",
-        str(desktop),
+        str(proxy),
+        "-t",
+        "stdio",
+        "-c",
+        str(proxy_config),
     ]
 
 
@@ -316,6 +320,7 @@ async def lifespan(app: Starlette):
     env["USERPROFILE"] = str(runtime_home)
     env["HOME"] = str(runtime_home)
     env["DESKTOP_COMMANDER_DISABLE_TELEMETRY"] = "1"
+    env["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
 
     # Node child_process.spawn resolves powershell.exe through PATH. Some ChatGPT/
     # Desktop Commander launch environments omit the Windows PowerShell directory,

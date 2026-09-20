@@ -64,6 +64,32 @@ def response_json(response: httpx.Response) -> dict:
     raise RuntimeError(f"Unexpected response: {response.status_code} {content_type} {response.text[:500]}")
 
 
+def result_text(result: dict) -> str:
+    return "\n".join(
+        item.get("text", "")
+        for item in result.get("content", [])
+        if item.get("type") == "text"
+    )
+
+
+def assert_tool_success(name: str, result: dict) -> None:
+    text = result_text(result)
+    if result.get("isError"):
+        raise RuntimeError(f"{name} returned MCP error: {text}")
+    for item in result.get("content", []):
+        if item.get("type") != "text":
+            continue
+        raw = item.get("text", "").strip()
+        if not raw.startswith("{"):
+            continue
+        try:
+            payload = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and payload.get("error") is True:
+            raise RuntimeError(f"{name} returned tool error: {payload}")
+
+
 def main() -> int:
     parsed = urlsplit(BASE)
     origin = f"{parsed.scheme}://{parsed.netloc}"
@@ -211,6 +237,80 @@ def main() -> int:
     missing = sorted(REQUIRED - names)
     if missing:
         raise RuntimeError("Missing Desktop Commander tools: " + ", ".join(missing))
+    if len(names) != 109:
+        raise RuntimeError(f"Expected 109 aggregate tools, got {len(names)}")
+    for required_name in (
+        "win_health_check",
+        "win_list_windows",
+        "win_uia_get_focused",
+        "sys_system_info",
+        "sys_event_log",
+        "sys_registry_get",
+        "sys_service",
+        "sys_scheduled_task",
+        "sys_security_audit",
+        "search_everything_search",
+    ):
+        if required_name not in names:
+            raise RuntimeError(f"Missing aggregate tool: {required_name}")
+    for forbidden_name in (
+        "sys_screenshot",
+        "sys_ocr",
+        "sys_click",
+        "sys_type",
+        "sys_file_read",
+        "sys_file_write",
+        "sys_powershell",
+        "sys_start_process",
+        "sys_process",
+        "sys_window",
+        "sys_wmi_query",
+    ):
+        if forbidden_name in names:
+            raise RuntimeError(f"Duplicate/risky aggregate tool should be filtered: {forbidden_name}")
+    if any(name.startswith("web_") for name in names):
+        raise RuntimeError("Browser tools should not be exposed by the default aggregate")
+
+    regression_file = str(ROOT / "runtime" / "oauth-regression-test.txt")
+    write_response = client.post(
+        RESOURCE,
+        headers=session_headers,
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {
+                "name": "write_file",
+                "arguments": {
+                    "path": regression_file,
+                    "content": "OWNEROPS_OAUTH_FILE_OK",
+                    "mode": "rewrite",
+                },
+            },
+        },
+    )
+    write_response.raise_for_status()
+    assert_tool_success("write_file", response_json(write_response)["result"])
+
+    read_response = client.post(
+        RESOURCE,
+        headers=session_headers,
+        json={
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "tools/call",
+            "params": {
+                "name": "read_file",
+                "arguments": {"path": regression_file, "offset": 0, "length": 10},
+            },
+        },
+    )
+    read_response.raise_for_status()
+    read_result = response_json(read_response)["result"]
+    assert_tool_success("read_file", read_result)
+    if "OWNEROPS_OAUTH_FILE_OK" not in result_text(read_result):
+        raise RuntimeError("Desktop file read/write regression failed")
+    print("Desktop regression PASS: OAuth file write/read")
 
     terminal_cases = [
         ("default-shell", {"command": "whoami", "timeout_ms": 5000}),
@@ -327,6 +427,41 @@ def main() -> int:
         },
     )
     next_id += 1
+
+    extra_cases = [
+        ("win_health_check", {}),
+        ("win_list_windows", {"filter": "ChatGPT"}),
+        ("win_clipboard_paste", {"include_content": False, "max_chars": 100}),
+        ("win_uia_get_focused", {}),
+        ("sys_system_info", {"category": "os"}),
+        ("sys_defender_status", {}),
+        ("sys_network", {"action": "adapters"}),
+        ("sys_event_log", {"log": "System", "max": 3}),
+        ("sys_service", {"action": "list"}),
+        ("sys_registry_get", {"hive": "HKCU", "path": "Environment"}),
+        ("sys_scheduled_task", {"action": "list"}),
+        ("sys_security_audit", {}),
+        (
+            "search_everything_search",
+            {"params": {"query": "ownerops-desktop-mcp", "max_results": 5}},
+        ),
+    ]
+    for label, arguments in extra_cases:
+        extra_response = client.post(
+            RESOURCE,
+            headers=session_headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": next_id,
+                "method": "tools/call",
+                "params": {"name": label, "arguments": arguments},
+            },
+        )
+        extra_response.raise_for_status()
+        extra_result = response_json(extra_response)["result"]
+        assert_tool_success(label, extra_result)
+        print(f"Extra regression PASS: {label}")
+        next_id += 1
 
     refreshed = client.post(
         BASE + "/token",

@@ -2,20 +2,14 @@
 setlocal
 cd /d "%~dp0\.."
 
-if not exist "node_modules\@wonderwhy-er\desktop-commander\dist\index.js" (
-  echo Missing Desktop Commander package. Run scripts\install.cmd first. 1>&2
+if not exist "C:\Users\getch\.dotnet\tools\mcpproxy.exe" (
+  echo Missing McpProxy. See README aggregate prerequisites. 1>&2
+  exit /b 1
+)
+if not exist "config\mcp-proxy.json" (
+  echo Missing aggregate config. 1>&2
   exit /b 1
 )
 
-set "OWNEROPS_RUNTIME_HOME=%CD%\runtime\home"
-if not exist "%OWNEROPS_RUNTIME_HOME%\.claude-server-commander" mkdir "%OWNEROPS_RUNTIME_HOME%\.claude-server-commander"
-if not exist "%OWNEROPS_RUNTIME_HOME%\.claude-server-commander\config.json" (
-  copy /Y "config\desktop-commander.config.json" "%OWNEROPS_RUNTIME_HOME%\.claude-server-commander\config.json" >NUL
-)
-
-set "USERPROFILE=%OWNEROPS_RUNTIME_HOME%"
-set "HOME=%OWNEROPS_RUNTIME_HOME%"
-set "DESKTOP_COMMANDER_DISABLE_TELEMETRY=1"
-set "PATH=C:\Windows\System32\WindowsPowerShell\v1.0;C:\Windows\System32;%PATH%"
-
-node "%CD%\node_modules\@wonderwhy-er\desktop-commander\dist\index.js"
+set "DOTNET_CLI_TELEMETRY_OPTOUT=1"
+"C:\Users\getch\.dotnet\tools\mcpproxy.exe" -t stdio -c "%CD%\config\mcp-proxy.json"

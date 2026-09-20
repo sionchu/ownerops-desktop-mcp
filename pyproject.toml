@@ -1,7 +1,7 @@
 [project]
 name = "ownerops-desktop-mcp"
 version = "0.4.0"
-description = "Self-hosted ChatGPT web gateway for the official Desktop Commander MCP engine"
+description = "Self-hosted ChatGPT gateway for curated Windows desktop control MCP backends"
 requires-python = ">=3.12"
 dependencies = [
   "mcp-stdio==0.43.6",

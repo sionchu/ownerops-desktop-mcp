@@ -1,0 +1,122 @@
+{
+  "proxy": {
+    "serverInfo": {
+      "name": "OwnerOps Desktop",
+      "version": "0.4.0",
+      "instructions": "Unified Windows control: Desktop Commander, Win32 UI/OCR automation, curated system diagnostics, and indexed file search."
+    },
+    "routing": {
+      "mode": "unified",
+      "basePath": "/mcp"
+    },
+    "authentication": {
+      "enabled": false
+    },
+    "logging": {
+      "logRequests": true,
+      "logResponses": false,
+      "sensitiveDataMask": true
+    },
+    "caching": {
+      "tools": {
+        "enabled": true,
+        "ttlSeconds": 60
+      }
+    }
+  },
+  "mcp": {
+    "desktop": {
+      "type": "stdio",
+      "title": "Desktop Commander",
+      "description": "Official Desktop Commander MCP engine",
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "arguments": [
+        "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\node_modules\\@wonderwhy-er\\desktop-commander\\dist\\index.js"
+      ],
+      "environment": {
+        "USERPROFILE": "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\runtime\\home",
+        "HOME": "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\runtime\\home",
+        "DESKTOP_COMMANDER_DISABLE_TELEMETRY": "1",
+        "PATH": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0;C:\\Windows\\System32;C:\\Program Files\\Git\\cmd;C:\\Program Files\\nodejs;C:\\Users\\getch\\AppData\\Local\\Programs\\Python\\Python312;C:\\Users\\getch\\AppData\\Local\\Programs\\Python\\Python312\\Scripts;C:\\Program Files\\Tesseract-OCR"
+      },
+      "enabled": true
+    },
+    "win": {
+      "type": "stdio",
+      "title": "Win32 Automation",
+      "description": "Windows UI automation, OCR, screenshots, input, windows, clipboard and processes",
+      "command": "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\runtime\\win32-venv\\Scripts\\win32-mcp-server.exe",
+      "arguments": [],
+      "environment": {
+        "WIN32_MCP_SECURITY_PROFILE": "interactive",
+        "WIN32_MCP_RESULT_ENVELOPE": "1",
+        "TESSERACT_CMD": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+        "PATH": "C:\\Program Files\\Tesseract-OCR;C:\\Windows\\System32\\WindowsPowerShell\\v1.0;C:\\Windows\\System32;C:\\Program Files\\Git\\cmd;C:\\Program Files\\nodejs;C:\\Users\\getch\\AppData\\Local\\Programs\\Python\\Python312;C:\\Users\\getch\\AppData\\Local\\Programs\\Python\\Python312\\Scripts"
+      },
+      "enabled": true,
+      "tools": {
+        "prefix": "win",
+        "prefixSeparator": "_"
+      }
+    },
+    "sys": {
+      "type": "stdio",
+      "title": "Windows System MCP",
+      "description": "Curated Windows system diagnostics and administration without file/UI/process-shell duplicates",
+      "command": "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\runtime\\windows-mcp-dist\\WindowsMcp.exe",
+      "arguments": [],
+      "enabled": true,
+      "tools": {
+        "prefix": "sys",
+        "prefixSeparator": "_",
+        "filter": {
+          "mode": "allowlist",
+          "patterns": [
+            "audio",
+            "cert_store",
+            "defender_status",
+            "disk_inspect",
+            "driver_list",
+            "env",
+            "event_log",
+            "file_streams",
+            "firewall",
+            "fs_changes",
+            "integrity",
+            "network",
+            "notification",
+            "process_inspect",
+            "registry_get",
+            "registry_set",
+            "reliability",
+            "scheduled_task",
+            "security_audit",
+            "service",
+            "startup_report",
+            "storage_health",
+            "system_info",
+            "verify_signature",
+            "watch"
+          ],
+          "caseInsensitive": true
+        }
+      }
+    },
+    "search": {
+      "type": "stdio",
+      "title": "Everything Search MCP",
+      "description": "Instant indexed Windows file search through Everything",
+      "command": "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\runtime\\everything-venv\\Scripts\\everything-mcp.exe",
+      "arguments": [],
+      "environment": {
+        "EVERYTHING_ES_PATH": "C:\\Users\\getch\\mcp\\ownerops-desktop-mcp\\runtime\\bin\\es.exe",
+        "EVERYTHING_MAX_RESULTS_CAP": "1000"
+      },
+      "enabled": true,
+      "tools": {
+        "prefix": "search",
+        "prefixSeparator": "_"
+      }
+    }
+  }
+}
