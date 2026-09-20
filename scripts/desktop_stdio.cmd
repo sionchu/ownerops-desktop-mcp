@@ -16,5 +16,6 @@ if not exist "%OWNEROPS_RUNTIME_HOME%\.claude-server-commander\config.json" (
 set "USERPROFILE=%OWNEROPS_RUNTIME_HOME%"
 set "HOME=%OWNEROPS_RUNTIME_HOME%"
 set "DESKTOP_COMMANDER_DISABLE_TELEMETRY=1"
+set "PATH=C:\Windows\System32\WindowsPowerShell\v1.0;C:\Windows\System32;%PATH%"
 
 node "%CD%\node_modules\@wonderwhy-er\desktop-commander\dist\index.js"

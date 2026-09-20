@@ -212,6 +212,122 @@ def main() -> int:
     if missing:
         raise RuntimeError("Missing Desktop Commander tools: " + ", ".join(missing))
 
+    terminal_cases = [
+        ("default-shell", {"command": "whoami", "timeout_ms": 5000}),
+        (
+            "powershell-by-name",
+            {"command": "whoami", "timeout_ms": 5000, "shell": "powershell.exe"},
+        ),
+        ("cmd-by-name", {"command": "whoami", "timeout_ms": 5000, "shell": "cmd.exe"}),
+        (
+            "git-status",
+            {
+                "command": (
+                    "Set-Location 'C:\\Users\\getch\\mcp\\ownerops-desktop-mcp'; "
+                    "git status --short"
+                ),
+                "timeout_ms": 5000,
+            },
+        ),
+    ]
+    next_id = 10
+    for label, arguments in terminal_cases:
+        terminal_response = client.post(
+            RESOURCE,
+            headers=session_headers,
+            json={
+                "jsonrpc": "2.0",
+                "id": next_id,
+                "method": "tools/call",
+                "params": {"name": "start_process", "arguments": arguments},
+            },
+        )
+        terminal_response.raise_for_status()
+        terminal_payload = response_json(terminal_response)
+        result = terminal_payload["result"]
+        text_content = "\n".join(
+            item.get("text", "")
+            for item in result.get("content", [])
+            if item.get("type") == "text"
+        )
+        if result.get("isError") or "Process started with PID" not in text_content:
+            raise RuntimeError(f"Terminal regression failed ({label}): {text_content}")
+        print(f"Terminal regression PASS: {label}")
+        next_id += 1
+
+    repl_start = client.post(
+        RESOURCE,
+        headers=session_headers,
+        json={
+            "jsonrpc": "2.0",
+            "id": next_id,
+            "method": "tools/call",
+            "params": {
+                "name": "start_process",
+                "arguments": {"command": "python -i", "timeout_ms": 5000},
+            },
+        },
+    )
+    repl_start.raise_for_status()
+    repl_payload = response_json(repl_start)["result"]
+    repl_text = "\n".join(
+        item.get("text", "")
+        for item in repl_payload.get("content", [])
+        if item.get("type") == "text"
+    )
+    import re
+
+    match = re.search(r"PID (\d+)", repl_text)
+    if repl_payload.get("isError") or not match:
+        raise RuntimeError(f"Interactive start failed: {repl_text}")
+    repl_pid = int(match.group(1))
+    next_id += 1
+
+    interaction = client.post(
+        RESOURCE,
+        headers=session_headers,
+        json={
+            "jsonrpc": "2.0",
+            "id": next_id,
+            "method": "tools/call",
+            "params": {
+                "name": "interact_with_process",
+                "arguments": {
+                    "pid": repl_pid,
+                    "input": 'print("OWNEROPS_INTERACTIVE_OK")',
+                    "timeout_ms": 5000,
+                    "wait_for_prompt": True,
+                },
+            },
+        },
+    )
+    interaction.raise_for_status()
+    interaction_result = response_json(interaction)["result"]
+    interaction_text = "\n".join(
+        item.get("text", "")
+        for item in interaction_result.get("content", [])
+        if item.get("type") == "text"
+    )
+    if interaction_result.get("isError") or "OWNEROPS_INTERACTIVE_OK" not in interaction_text:
+        raise RuntimeError(f"Interactive process failed: {interaction_text}")
+    print("Terminal regression PASS: interactive-python")
+    next_id += 1
+
+    client.post(
+        RESOURCE,
+        headers=session_headers,
+        json={
+            "jsonrpc": "2.0",
+            "id": next_id,
+            "method": "tools/call",
+            "params": {
+                "name": "force_terminate",
+                "arguments": {"pid": repl_pid},
+            },
+        },
+    )
+    next_id += 1
+
     refreshed = client.post(
         BASE + "/token",
         data={

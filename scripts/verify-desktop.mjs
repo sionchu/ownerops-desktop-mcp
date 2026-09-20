@@ -38,6 +38,10 @@ const required = [
   "kill_process",
 ];
 
+const powershellDir = String.raw`C:\Windows\System32\WindowsPowerShell\v1.0`;
+const system32Dir = String.raw`C:\Windows\System32`;
+const repairedPath = [powershellDir, system32Dir, process.env.PATH || ""].join(path.delimiter);
+
 const transport = new StdioClientTransport({
   command: process.execPath,
   args: [server],
@@ -46,6 +50,7 @@ const transport = new StdioClientTransport({
     ...process.env,
     USERPROFILE: runtimeHome,
     HOME: runtimeHome,
+    PATH: repairedPath,
     DESKTOP_COMMANDER_DISABLE_TELEMETRY: "1",
   },
 });
@@ -69,6 +74,21 @@ try {
     process.exitCode = 1;
   } else {
     console.log("Core Desktop Commander parity check: PASS");
+  }
+
+  const terminalTests = [
+    ["default-shell", { command: "whoami", timeout_ms: 5000 }],
+    ["powershell-by-name", { command: "whoami", timeout_ms: 5000, shell: "powershell.exe" }],
+    ["cmd-by-name", { command: "whoami", timeout_ms: 5000, shell: "cmd.exe" }],
+  ];
+
+  for (const [label, args] of terminalTests) {
+    const result = await client.callTool({ name: "start_process", arguments: args });
+    const text = result.content?.map((item) => item.text || "").join("\n") || "";
+    if (result.isError || !text.includes("Process started with PID")) {
+      throw new Error(`Terminal regression failed (${label}): ${text}`);
+    }
+    console.log(`Terminal regression PASS: ${label}`);
   }
 } finally {
   await client.close();

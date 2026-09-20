@@ -317,6 +317,16 @@ async def lifespan(app: Starlette):
     env["HOME"] = str(runtime_home)
     env["DESKTOP_COMMANDER_DISABLE_TELEMETRY"] = "1"
 
+    # Node child_process.spawn resolves powershell.exe through PATH. Some ChatGPT/
+    # Desktop Commander launch environments omit the Windows PowerShell directory,
+    # even though System32 itself is present. Repair it for every upstream child.
+    powershell_dir = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0"
+    system32_dir = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+    inherited_path = env.get("PATH", "")
+    env["PATH"] = os.pathsep.join(
+        [str(powershell_dir), str(system32_dir), inherited_path]
+    )
+
     backend_log = open(runtime / "oauth-backend.log", "a", encoding="utf-8")
     backend = subprocess.Popen(
         _backend_command(),

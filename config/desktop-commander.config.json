@@ -34,7 +34,7 @@
     "cipher",
     "takeown"
   ],
-  "defaultShell": "powershell.exe",
+  "defaultShell": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
   "allowedDirectories": [
     "C:\\Users\\getch\\mcp",
     "C:\\Users\\getch\\Documents",
