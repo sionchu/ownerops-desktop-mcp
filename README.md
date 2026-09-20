@@ -1,10 +1,10 @@
 # ownerops-desktop-mcp
 
-Small self-hosted desktop MCP for personal development machines.
+Self-hosted personal desktop MCP. The goal is a small, inspectable alternative to a paid
+desktop-control bridge rather than a feature-for-feature clone.
 
-## Scope
+## Clean-v0 tools
 
-Clean-v0 intentionally exposes only:
 - `get_policy`
 - `list_directory`
 - `read_file`
@@ -12,22 +12,32 @@ Clean-v0 intentionally exposes only:
 - `search_files`
 - `run_shell`
 
-There is no delete tool, registry tool, privilege escalation tool, or arbitrary process-kill tool.
+No delete, registry, privilege-escalation, or arbitrary process-kill tool is exposed.
 
-## Security model
+## Security
 
-Filesystem tools resolve every path and require it to stay under `DESKTOP_MCP_ROOTS`.
-Sensitive directory names can be denied with `DESKTOP_MCP_DENY_NAMES`.
+Filesystem access is constrained by `DESKTOP_MCP_ROOTS`. Every file path is resolved before
+use and must remain under an allowed root. Sensitive directory names can additionally be denied
+with `DESKTOP_MCP_DENY_NAMES`.
 
-The shell is intentionally more constrained than a normal terminal:
-- working directory must be under an allowed root
-- only executables in `DESKTOP_MCP_SHELL_ALLOW` may run
-- command chaining and redirection are disabled
-- execution has a timeout and output cap
+The shell is deliberately restricted:
+- its working directory must be inside an allowed root
+- only commands in `DESKTOP_MCP_SHELL_ALLOW` may start
+- shell chaining and redirection are rejected
+- runtime and output are capped
 
-Important: the shell policy is **not an OS sandbox**. An allowed executable can potentially access
-resources outside the workspace. For a hard boundary, run the agent as a dedicated low-privilege
-OS account or add a container/sandbox execution mode.
+The shell policy is not an OS sandbox. An allowlisted executable may still reach host resources.
+For a hard boundary, run under a dedicated low-privilege account or add a container sandbox.
+
+## Authentication
+
+HTTP mode supports:
+- `oauth` — OAuth authorization code flow, S256 PKCE, dynamic client registration,
+  refresh-token rotation, and `offline_access`
+- `bearer` — static bearer token for simple MCP clients
+- `none` — local/private testing only
+
+OAuth credentials and tokens live outside Git in `.env`.
 
 ## Setup
 
@@ -35,42 +45,40 @@ OS account or add a container/sandbox execution mode.
 git clone https://github.com/sionchu/ownerops-desktop-mcp.git
 cd ownerops-desktop-mcp
 copy .env.example .env
-uv sync
+uv sync --dev
+uv run pytest
+uv run ruff check .
 ```
 
-Edit `.env` and set explicit allowed roots and a long random token.
+Set explicit roots and generate strong OAuth credentials before remote use.
 
-## Local stdio test
-
-```powershell
-uv run python server.py
-```
-
-## HTTP server
+## Run
 
 ```powershell
 uv run python http_server.py
 ```
 
-Default endpoint: `http://127.0.0.1:8765/mcp`
-Health endpoint: `http://127.0.0.1:8765/health`
+Local MCP endpoint: `http://127.0.0.1:8765/mcp`
 
-HTTP mode supports `DESKTOP_MCP_AUTH_MODE=bearer`.
-Send `Authorization: Bearer <DESKTOP_MCP_TOKEN>`.
+`start_mcp.cmd` is provided for Windows startup/task-scheduler use.
 
-## Tailscale
+## Tailscale Funnel example
 
-Prefer a private Tailscale path or a secure MCP tunnel. If using Tailscale Funnel, keep bearer
-authentication enabled and do not commit `.env`.
+If the public base is `https://host.example/ownerops`:
 
-A future OAuth adapter can be added without changing the filesystem/shell tool layer.
+```powershell
+tailscale funnel --bg --set-path /ownerops http://127.0.0.1:8765
+```
+
+RFC 9728 protected-resource metadata is advertised at a root well-known URL. If another
+service already owns `/`, add a narrow route for that exact metadata path as well.
+
+Prefer a private Tailscale path or OpenAI Secure MCP Tunnel when available instead of a public
+Funnel. If Funnel is used, keep OAuth enabled.
 
 ## Development
 
-```powershell
-uv run pytest
-uv run ruff check .
-```
+The project tracks MCP Python SDK 2.x and CI runs on Windows with pytest and Ruff.
 
 ## License
 

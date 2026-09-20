@@ -1,10 +1,10 @@
 [project]
 name = "ownerops-desktop-mcp"
-version = "0.1.0"
-description = "Small self-hosted desktop MCP with scoped filesystem and restricted shell"
+version = "0.2.0"
+description = "Self-hosted desktop MCP with scoped filesystem, OAuth, and restricted shell"
 requires-python = ">=3.12"
 dependencies = [
-  "mcp[cli]>=1.25.0,<4",
+  "mcp[cli]>=2.2,<3",
   "uvicorn>=0.35.0",
   "starlette>=0.47.0",
   "python-dotenv>=1.1.0",

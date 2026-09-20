@@ -53,8 +53,41 @@ def _load_settings() -> Settings:
     )
 
 SETTINGS = _load_settings()
+AUTH_MODE = os.getenv("DESKTOP_MCP_AUTH_MODE", "bearer").strip().lower()
+OAUTH_PROVIDER = None
 
-mcp = MCPServer("OwnerOps Desktop")
+if AUTH_MODE == "oauth":
+    from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions, RevocationOptions
+    from pydantic import AnyHttpUrl
+
+    from oauth_provider import OwnerOAuthProvider
+
+    public_base = os.environ["DESKTOP_MCP_PUBLIC_BASE"].rstrip("/")
+    resource_url = os.environ["DESKTOP_MCP_PUBLIC_URL"]
+    OAUTH_PROVIDER = OwnerOAuthProvider(
+        username=os.environ["DESKTOP_MCP_OAUTH_USERNAME"],
+        password=os.environ["DESKTOP_MCP_OAUTH_PASSWORD"],
+        public_base_url=public_base,
+        resource_url=resource_url,
+    )
+    mcp = MCPServer(
+        "OwnerOps Desktop",
+        auth_server_provider=OAUTH_PROVIDER,
+        auth=AuthSettings(
+            issuer_url=AnyHttpUrl(public_base),
+            resource_server_url=AnyHttpUrl(resource_url),
+            required_scopes=["desktop"],
+            validate_token_resource=True,
+            client_registration_options=ClientRegistrationOptions(
+                enabled=True,
+                valid_scopes=["desktop", "offline_access"],
+                default_scopes=["desktop", "offline_access"],
+            ),
+            revocation_options=RevocationOptions(enabled=True),
+        ),
+    )
+else:
+    mcp = MCPServer("OwnerOps Desktop")
 
 
 class PolicyError(ValueError):
